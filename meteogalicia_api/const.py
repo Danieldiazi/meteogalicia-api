@@ -1,0 +1,2 @@
+"""Constants for the interface."""
+

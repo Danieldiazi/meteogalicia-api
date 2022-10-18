@@ -1,0 +1,1 @@
+"""MeteoGalicia API REST."""

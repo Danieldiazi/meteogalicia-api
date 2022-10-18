@@ -21,6 +21,6 @@ Usage
 ```python
 from meteogalicia_api.interface import MeteoGalicia
 meteogalicia = MeteoGalicia()
-meteogalicia.get_forecast_data("15031")
-meteogalicia.get_observation_data("15031")
+meteogalicia.get_forecast_data("32054")
+meteogalicia.get_observation_data("15023")
 ```

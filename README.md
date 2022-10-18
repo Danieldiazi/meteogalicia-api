@@ -4,7 +4,7 @@ Python client for the MeteoGalicia Rest web services.
 Description
 -----------
 
-MeteoGalicia-API implements an interface to the MeteoGalicia Rest web services.<br/>.
+MeteoGalicia-API implements an interface to the MeteoGalicia Rest web services.
 
 Documentation about MeteoGalicia web service is available at https://www.meteogalicia.gal/web/RSS/rssIndex.action?request_locale=es.
 
@@ -24,3 +24,5 @@ meteogalicia = MeteoGalicia()
 meteogalicia.get_forecast_data("32054")
 meteogalicia.get_observation_data("15023")
 ```
+
+Parameter id's are availables at https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf 

@@ -1,5 +1,6 @@
 
-Python client for the MeteoGalicia Rest web services.
+![PyPI](https://img.shields.io/pypi/v/MeteoGalicia-API)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/MeteoGalicia-API)
 
 Description
 -----------

@@ -18,7 +18,6 @@ class MeteoGalicia:
     def _do_get(self, url, id):
         r = self._session.get(url.format(id),timeout=15)
         result = None
-        print(r.text)
         if r.status_code == 200:
                 _LOGGER.debug("data received for %s", id)
                 

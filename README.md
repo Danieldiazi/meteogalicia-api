@@ -26,4 +26,4 @@ meteogalicia.get_forecast_data("32054")
 meteogalicia.get_observation_data("15023")
 ```
 
-Parameter id's are availables at https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf 
+Parameter id's are available at https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf 

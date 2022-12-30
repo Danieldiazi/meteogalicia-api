@@ -16,8 +16,8 @@ class MeteoGalicia:
         self._session = requests.Session()
     
     def _do_get(self, url, id):
-        r = self._session.get(url.format(id),timeout=15)
         result = None
+        r = self._session.get(url.format(id),timeout=15)
         if r.status_code == 200:
                 _LOGGER.debug("data received for %s", id)
                 
@@ -32,16 +32,18 @@ class MeteoGalicia:
 
     def get_forecast_data(self,id):
         r = self._do_get(URL_FORECAST,id)
-        if ((r['predConcello'])==None):
-             _LOGGER.debug("No data for %s", id)
+        if (r==None ):
+            _LOGGER.error("No data for %s", id)
+        elif ((r['predConcello'])==None):
+                _LOGGER.debug("No forecast data for %s", id)
         return r
     
     def get_observation_data(self,id):
         r = self._do_get(URL_OBSERVATION,id)
-        if (len(r['listaObservacionConcellos'])==0):
-             _LOGGER.debug("No data for %s", id)
+        if (r==None):
+            _LOGGER.error("No data for %s", id)
+        elif (len(r['listaObservacionConcellos'])==0):
+             _LOGGER.debug("No observation data for %s", id)
         return r
     
-
-
 

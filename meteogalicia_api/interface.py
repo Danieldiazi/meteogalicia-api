@@ -9,7 +9,7 @@ URL_FORECAST = "https://servizos.meteogalicia.gal/mgrss/predicion/jsonPredConcel
 URL_OBSERVATION = "https://servizos.meteogalicia.gal/mgrss/observacion/observacionConcellos.action?idConcello={}"
 URL_OBSERVATION_DAILYDATA_BY_STATION="https://servizos.meteogalicia.gal/mgrss/observacion/datosDiariosEstacionsMeteo.action?idEst={}"
 URL_OBSERVATION_LAST10MINDATA_BY_STATION="https://servizos.meteogalicia.gal/mgrss/observacion/ultimos10minEstacionsMeteo.action?idEst={}"
-URL_FORECAST_TIDE = "https://servizos.meteogalicia.gal/mgrss/predicion/rssMareas.action?idPorto={}"
+URL_FORECAST_TIDE = "https://servizos.meteogalicia.gal/mgrss/predicion/rssMareas.action?idPorto={}&dataIni={}&dataFin={}"
 
 class MeteoGalicia:
     """Class to interact with the MeteoGalicia web service."""
@@ -29,9 +29,9 @@ class MeteoGalicia:
                 self.logger.error(f"error code {r.status_code} for code: {id} - returned: {r.text}")
         return result
 
-    def _do_getGeoRSS(self, url, id):
+    def _do_getGeoRSS(self, url, id, date1, date2):
         result = None
-        r = self._session.get(url.format(id),timeout=15)
+        r = self._session.get(url.format(id,date1,date2),timeout=15)
         if r.status_code == 200:
                 self.logger.debug(f"Data received for {id}")
                 xml_data = r.text
@@ -70,11 +70,35 @@ class MeteoGalicia:
         return r
     
     def get_forecast_tide(self,id):
-        r = self._do_getGeoRSS(URL_FORECAST_TIDE,id)
+        today = datetime.now()
+        yesterday = today - timedelta(days=1)
+        tomorrow =  today + timedelta(days=1)
+        strYesterday = yesterday.strftime("%d/%m/%Y")
+        strTomorrow = tomorrow.strftime("%d/%m/%Y")
+        data = {}
+
+        r = self._do_getGeoRSS(URL_FORECAST_TIDE,id,strYesterday,strTomorrow)
+        
         if (r==None):
             self.logger.error(f"Unavailable forecast tide data for code: {id}")
         elif (len(r['rss'])==0):
              self.logger.debug(f"No forecast tide data for {id}")
-        return r
+        else: 
+             
+             yesterdayTidesArrayLen=len(r['rss']['channel']['item'][0]['Mareas:mareas'])
+
+             data["pointGeoRSS"] = r['rss']['channel']['item'][0]['georss:point']
+             data["date"] = r['rss']['channel']['item'][0]['dc:date']
+             data["portId"] = r['rss']['channel']['item'][0]['Mareas:idPorto']["#text"]
+             data["portName"] = r['rss']['channel']['item'][0]['Mareas:nomePorto']["#text"]
+             data["yesterdayLastTide"] = r['rss']['channel']['item'][0]['Mareas:mareas'][yesterdayTidesArrayLen-1]
+             data["todayTides"] = r['rss']['channel']['item'][1]['Mareas:mareas']
+             data["tomorrowFirstTide"] = r['rss']['channel']['item'][2]['Mareas:mareas'][0]
+
+             
+
+             
+
+        return data
 
 

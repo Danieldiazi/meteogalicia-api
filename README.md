@@ -19,6 +19,7 @@ This software is provided without warranty, and should therefore not be used whe
 Usage
 -----
 
+Example:
 ```python
 from meteogalicia_api.interface import MeteoGalicia
 meteogalicia = MeteoGalicia()
@@ -26,4 +27,23 @@ meteogalicia.get_forecast_data("32054")
 meteogalicia.get_observation_data("15023")
 ```
 
+Town hall or city data methods:
+```python
+meteogalicia.get_forecast_data("32054")
+meteogalicia.get_observation_data("15023")
+```
 Parameter id's are available at https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf 
+
+Station methods:
+```python
+meteogalicia.get_observation_dailydata_by_station("10144")
+meteogalicia.get_observation_last10mindata_by_station("10144")
+```
+Parameter station id's are available at [https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf ](https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action)https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action
+
+Tides methods:
+
+```python
+meteogalicia.get_forecast_tide("3")
+```
+id availables at: https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/RSS_Mareas_gl.pdf

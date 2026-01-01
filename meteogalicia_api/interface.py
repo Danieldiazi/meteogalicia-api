@@ -1,6 +1,7 @@
 """Client for the Meteogalicia REST API."""
 import logging
 from datetime import datetime, timedelta
+from xml.parsers.expat import ExpatError
 import requests
 import xmltodict
 
@@ -21,25 +22,30 @@ class MeteoGalicia:
     
     def _do_get(self, url, id):
         result = None
-        r = self._session.get(url.format(id), timeout=self._timeout)
-        if r.status_code == 200:
-                self.logger.debug(f"Data received for {id}")
-                
-                result = r.json()
-        else:
-                self.logger.error(f"error code {r.status_code} for code: {id} - returned: {r.text}")
+        try:
+            r = self._session.get(url.format(id), timeout=self._timeout)
+            r.raise_for_status()
+            self.logger.debug(f"Data received for {id}")
+            result = r.json()
+        except requests.exceptions.RequestException as exc:
+            self.logger.error(f"Request error for code: {id} - {exc}")
+        except ValueError as exc:
+            self.logger.error(f"Invalid JSON for code: {id} - {exc}")
         return result
 
     def _do_getGeoRSS(self, url, id, date1, date2):
         result = None
-        r = self._session.get(url.format(id, date1, date2), timeout=self._timeout)
-        if r.status_code == 200:
-                self.logger.debug(f"Data received for {id}")
-                xml_data = r.text
-                data_dict = xmltodict.parse(xml_data)
-                result = data_dict
-        else:
-                self.logger.error(f"error code {r.status_code} for code: {id} - returned: {r.text}")
+        try:
+            r = self._session.get(url.format(id, date1, date2), timeout=self._timeout)
+            r.raise_for_status()
+            self.logger.debug(f"Data received for {id}")
+            xml_data = r.text
+            data_dict = xmltodict.parse(xml_data)
+            result = data_dict
+        except requests.exceptions.RequestException as exc:
+            self.logger.error(f"Request error for code: {id} - {exc}")
+        except ExpatError as exc:
+            self.logger.error(f"Invalid XML for code: {id} - {exc}")
         return result
 
     def get_forecast_data(self,id):

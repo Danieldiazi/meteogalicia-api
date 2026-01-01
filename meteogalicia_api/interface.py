@@ -76,7 +76,7 @@ class MeteoGalicia:
         tomorrow =  today + timedelta(days=1)
         strYesterday = yesterday.strftime("%d/%m/%Y")
         strTomorrow = tomorrow.strftime("%d/%m/%Y")
-        data = {}
+        data = None
 
         r = self._do_getGeoRSS(URL_FORECAST_TIDE,id,strYesterday,strTomorrow)
         
@@ -88,6 +88,7 @@ class MeteoGalicia:
              
              yesterdayTidesArrayLen=len(r['rss']['channel']['item'][0]['Mareas:mareas'])
 
+             data = {}
              data["pointGeoRSS"] = r['rss']['channel']['item'][0]['georss:point']
              data["date"] = r['rss']['channel']['item'][0]['dc:date']
              data["portId"] = r['rss']['channel']['item'][0]['Mareas:idPorto']["#text"]
@@ -101,4 +102,3 @@ class MeteoGalicia:
              
 
         return data
-

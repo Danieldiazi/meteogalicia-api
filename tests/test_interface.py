@@ -131,3 +131,20 @@ def test_get_forecast_tide_ok():
     assert data["yesterdayLastTide"]["@estado"] == "Baixamar"
     assert data["todayTides"][0]["@estado"] == "Preamar"
     assert data["tomorrowFirstTide"]["@estado"] == "Preamar"
+
+
+@responses.activate
+def test_get_forecast_tide_http_error():
+    api = MeteoGalicia()
+    today = datetime.now()
+    str_yesterday = (today - timedelta(days=1)).strftime("%d/%m/%Y")
+    str_tomorrow = (today + timedelta(days=1)).strftime("%d/%m/%Y")
+    responses.add(
+        responses.GET,
+        URL_FORECAST_TIDE.format("3", str_yesterday, str_tomorrow),
+        body="error",
+        status=500,
+    )
+
+    data = api.get_forecast_tide("3")
+    assert data is None

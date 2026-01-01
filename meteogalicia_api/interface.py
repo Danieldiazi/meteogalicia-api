@@ -90,20 +90,26 @@ class MeteoGalicia:
         
         if (r==None):
             self.logger.error(f"Unavailable forecast tide data for code: {id}")
-        elif (len(r['rss'])==0):
-             self.logger.debug(f"No forecast tide data for {id}")
-        else: 
-             
-             yesterdayTidesArrayLen=len(r['rss']['channel']['item'][0]['Mareas:mareas'])
-
-             data = {}
-             data["pointGeoRSS"] = r['rss']['channel']['item'][0]['georss:point']
-             data["date"] = r['rss']['channel']['item'][0]['dc:date']
-             data["portId"] = r['rss']['channel']['item'][0]['Mareas:idPorto']["#text"]
-             data["portName"] = r['rss']['channel']['item'][0]['Mareas:nomePorto']["#text"]
-             data["yesterdayLastTide"] = r['rss']['channel']['item'][0]['Mareas:mareas'][yesterdayTidesArrayLen-1]
-             data["todayTides"] = r['rss']['channel']['item'][1]['Mareas:mareas']
-             data["tomorrowFirstTide"] = r['rss']['channel']['item'][2]['Mareas:mareas'][0]
+        else:
+            rss = r.get("rss") if isinstance(r, dict) else None
+            channel = rss.get("channel") if isinstance(rss, dict) else None
+            items = channel.get("item") if isinstance(channel, dict) else None
+            if not isinstance(items, list):
+                self.logger.error(f"Unexpected tide payload for code: {id}")
+                return None
+            try:
+                yesterdayTidesArrayLen = len(items[0]['Mareas:mareas'])
+                data = {}
+                data["pointGeoRSS"] = items[0]['georss:point']
+                data["date"] = items[0]['dc:date']
+                data["portId"] = items[0]['Mareas:idPorto']["#text"]
+                data["portName"] = items[0]['Mareas:nomePorto']["#text"]
+                data["yesterdayLastTide"] = items[0]['Mareas:mareas'][yesterdayTidesArrayLen-1]
+                data["todayTides"] = items[1]['Mareas:mareas']
+                data["tomorrowFirstTide"] = items[2]['Mareas:mareas'][0]
+            except (KeyError, IndexError, TypeError) as exc:
+                self.logger.error(f"Unexpected tide payload for code: {id} - {exc}")
+                return None
 
              
 

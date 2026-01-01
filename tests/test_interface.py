@@ -148,3 +148,33 @@ def test_get_forecast_tide_http_error():
 
     data = api.get_forecast_tide("3")
     assert data is None
+
+
+@responses.activate
+def test_get_forecast_tide_unexpected_payload():
+    api = MeteoGalicia()
+    today = datetime.now()
+    str_yesterday = (today - timedelta(days=1)).strftime("%d/%m/%Y")
+    str_tomorrow = (today + timedelta(days=1)).strftime("%d/%m/%Y")
+    xml_body = """<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:georss="http://www.georss.org/georss" xmlns:Mareas="Mareas" version="2.0">
+  <channel>
+    <item>
+      <dc:date>2025-12-30T23:00:00Z</dc:date>
+      <georss:point>42.0 -8.0</georss:point>
+      <Mareas:nomePorto descricion="Porto">Vigo</Mareas:nomePorto>
+      <Mareas:idPorto descricion="IdPorto">3</Mareas:idPorto>
+      <Mareas:mareas id="0" estado="Preamar" hora="00:33" altura="3,2" idTipoMarea="1" />
+    </item>
+  </channel>
+</rss>
+"""
+    responses.add(
+        responses.GET,
+        URL_FORECAST_TIDE.format("3", str_yesterday, str_tomorrow),
+        body=xml_body,
+        status=200,
+    )
+
+    data = api.get_forecast_tide("3")
+    assert data is None

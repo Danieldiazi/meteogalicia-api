@@ -14,7 +14,7 @@ DESCRIPTION = (
 URL = "https://github.com/danieldiazi/meteogalicia-api"
 EMAIL = "dandiazde@gmail.com"
 AUTHOR = "danieldiazi"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 here = lambda *a: os.path.join(os.path.dirname(__file__), *a)
 requirements = [x.strip() for x in open(here('requirements.txt')).readlines()]

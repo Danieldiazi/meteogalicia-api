@@ -13,14 +13,15 @@ URL_FORECAST_TIDE = "https://servizos.meteogalicia.gal/mgrss/predicion/rssMareas
 
 class MeteoGalicia:
     """Class to interact with the MeteoGalicia web service."""
-    def __init__( self,  log_level=logging.WARNING):
+    def __init__(self, log_level=logging.WARNING, session=None, timeout=15):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
-        self._session = requests.Session()
+        self._session = session if session is not None else requests.Session()
+        self._timeout = timeout
     
     def _do_get(self, url, id):
         result = None
-        r = self._session.get(url.format(id),timeout=15)
+        r = self._session.get(url.format(id), timeout=self._timeout)
         if r.status_code == 200:
                 self.logger.debug(f"Data received for {id}")
                 
@@ -31,7 +32,7 @@ class MeteoGalicia:
 
     def _do_getGeoRSS(self, url, id, date1, date2):
         result = None
-        r = self._session.get(url.format(id,date1,date2),timeout=15)
+        r = self._session.get(url.format(id, date1, date2), timeout=self._timeout)
         if r.status_code == 200:
                 self.logger.debug(f"Data received for {id}")
                 xml_data = r.text
@@ -100,5 +101,4 @@ class MeteoGalicia:
              
 
         return data
-
 

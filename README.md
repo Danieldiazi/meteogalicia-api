@@ -27,6 +27,16 @@ meteogalicia.get_forecast_data("32054")
 meteogalicia.get_observation_data("15023")
 ```
 
+Custom session and timeout:
+```python
+import requests
+from meteogalicia_api.interface import MeteoGalicia
+
+session = requests.Session()
+meteogalicia = MeteoGalicia(session=session, timeout=10)
+meteogalicia.get_forecast_data("32054")
+```
+
 Town hall or city data methods:
 ```python
 meteogalicia.get_forecast_data("32054")

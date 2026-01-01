@@ -1,16 +1,18 @@
 """Client for the Meteogalicia REST API."""
 import logging
 from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 from xml.parsers.expat import ExpatError
 import requests
 import xmltodict
 
-
-URL_FORECAST = "https://servizos.meteogalicia.gal/mgrss/predicion/jsonPredConcellos.action?idConc={}"
-URL_OBSERVATION = "https://servizos.meteogalicia.gal/mgrss/observacion/observacionConcellos.action?idConcello={}"
-URL_OBSERVATION_DAILYDATA_BY_STATION="https://servizos.meteogalicia.gal/mgrss/observacion/datosDiariosEstacionsMeteo.action?idEst={}"
-URL_OBSERVATION_LAST10MINDATA_BY_STATION="https://servizos.meteogalicia.gal/mgrss/observacion/ultimos10minEstacionsMeteo.action?idEst={}"
-URL_FORECAST_TIDE = "https://servizos.meteogalicia.gal/mgrss/predicion/rssMareas.action?idPorto={}&dataIni={}&dataFin={}"
+from .const import (
+    URL_FORECAST,
+    URL_FORECAST_TIDE,
+    URL_OBSERVATION,
+    URL_OBSERVATION_DAILYDATA_BY_STATION,
+    URL_OBSERVATION_LAST10MINDATA_BY_STATION,
+)
 
 class MeteoGalicia:
     """Class to interact with the MeteoGalicia web service."""
@@ -20,7 +22,7 @@ class MeteoGalicia:
         self._session = session if session is not None else requests.Session()
         self._timeout = timeout
     
-    def _do_get(self, url, id):
+    def _do_get(self, url, id) -> Optional[Dict[str, Any]]:
         result = None
         try:
             r = self._session.get(url.format(id), timeout=self._timeout)
@@ -33,7 +35,7 @@ class MeteoGalicia:
             self.logger.error(f"Invalid JSON for code: {id} - {exc}")
         return result
 
-    def _do_getGeoRSS(self, url, id, date1, date2):
+    def _do_getGeoRSS(self, url, id, date1, date2) -> Optional[Dict[str, Any]]:
         result = None
         try:
             r = self._session.get(url.format(id, date1, date2), timeout=self._timeout)
@@ -48,7 +50,7 @@ class MeteoGalicia:
             self.logger.error(f"Invalid XML for code: {id} - {exc}")
         return result
 
-    def get_forecast_data(self,id):
+    def get_forecast_data(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_FORECAST,id)
         if (r==None ):
             self.logger.error(f"No data for code: {id}")
@@ -56,7 +58,7 @@ class MeteoGalicia:
                 self.logger.debug(f"No forecast data for {id}")
         return r
     
-    def get_observation_data(self,id):
+    def get_observation_data(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_OBSERVATION,id)
         if (r==None):
             self.logger.error(f"No data for code: {id}")
@@ -64,19 +66,19 @@ class MeteoGalicia:
              self.logger.debug(f"No observation data for {id}")
         return r
     
-    def get_observation_dailydata_by_station(self,id):
+    def get_observation_dailydata_by_station(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_OBSERVATION_DAILYDATA_BY_STATION,id)
         if (r==None) or (not('listDatosDiarios' in r)) or (len(r['listDatosDiarios'])==0):
              self.logger.debug(f"No observation info (daily data) of station code: {id}")      
         return r
     
-    def get_observation_last10mindata_by_station(self,id):
+    def get_observation_last10mindata_by_station(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_OBSERVATION_LAST10MINDATA_BY_STATION,id)
         if (r==None) or (not('listUltimos10min' in r)) or (len(r['listUltimos10min'])==0):
              self.logger.debug(f"No observation info (last 10 min data) of station code: {id}")
         return r
     
-    def get_forecast_tide(self,id):
+    def get_forecast_tide(self, id) -> Optional[Dict[str, Any]]:
         today = datetime.now()
         yesterday = today - timedelta(days=1)
         tomorrow =  today + timedelta(days=1)

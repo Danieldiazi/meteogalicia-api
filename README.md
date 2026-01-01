@@ -49,7 +49,7 @@ Station methods:
 meteogalicia.get_observation_dailydata_by_station("10144")
 meteogalicia.get_observation_last10mindata_by_station("10144")
 ```
-Parameter station id's are available at [https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf ](https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action)https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action
+Parameter station id's are available at https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action
 
 Tides methods:
 
@@ -57,3 +57,6 @@ Tides methods:
 meteogalicia.get_forecast_tide("3")
 ```
 id availables at: https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/RSS_Mareas_gl.pdf
+
+Errors:
+- Methods return `None` when no data is available or the request fails.

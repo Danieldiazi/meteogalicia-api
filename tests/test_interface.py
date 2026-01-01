@@ -7,6 +7,8 @@ from meteogalicia_api.interface import (
     URL_FORECAST,
     URL_OBSERVATION,
     URL_FORECAST_TIDE,
+    URL_OBSERVATION_DAILYDATA_BY_STATION,
+    URL_OBSERVATION_LAST10MINDATA_BY_STATION,
 )
 
 
@@ -63,6 +65,34 @@ def test_get_observation_data_empty_list():
     )
 
     data = api.get_observation_data("15030")
+    assert data is None
+
+
+@responses.activate
+def test_get_observation_dailydata_by_station_empty_list():
+    api = MeteoGalicia()
+    responses.add(
+        responses.GET,
+        URL_OBSERVATION_DAILYDATA_BY_STATION.format("10144"),
+        json={"listDatosDiarios": []},
+        status=200,
+    )
+
+    data = api.get_observation_dailydata_by_station("10144")
+    assert data is None
+
+
+@responses.activate
+def test_get_observation_last10mindata_by_station_empty_list():
+    api = MeteoGalicia()
+    responses.add(
+        responses.GET,
+        URL_OBSERVATION_LAST10MINDATA_BY_STATION.format("10144"),
+        json={"listUltimos10min": []},
+        status=200,
+    )
+
+    data = api.get_observation_last10mindata_by_station("10144")
     assert data is None
 
 

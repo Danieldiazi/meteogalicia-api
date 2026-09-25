@@ -8,6 +8,7 @@ import xmltodict
 
 from .const import (
     URL_FORECAST,
+    URL_FORECAST_HOURLY,
     URL_FORECAST_TIDE,
     URL_OBSERVATION,
     URL_OBSERVATION_DAILYDATA_BY_STATION,
@@ -60,6 +61,15 @@ class MeteoGalicia:
                 return None
         return r
     
+    def get_hourly_forecast_data(self, id) -> Optional[Dict[str, Any]]:
+        r = self._do_get(URL_FORECAST_HOURLY,id)
+        pred = r.get('predHoraria') if isinstance(r, dict) else None
+        if (not isinstance(pred, dict)) or (not pred.get('listaPredDiaHoraria')):
+             # An unknown code also returns 200 with an empty list.
+             self.logger.debug(f"No hourly forecast data for code: {id}")
+             return None
+        return r
+
     def get_observation_data(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_OBSERVATION,id)
         if (r==None):

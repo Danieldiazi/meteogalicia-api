@@ -8,6 +8,7 @@ from meteogalicia_api.interface import (
     MeteoGalicia,
     URL_FORECAST,
     URL_FORECAST_HOURLY,
+    URL_FORECAST_MEDIUM_TERM,
     URL_OBSERVATION,
     URL_OBSERVATION_DAILYDATA_BY_STATION,
     URL_OBSERVATION_LAST10MINDATA_BY_STATION,
@@ -31,6 +32,12 @@ JSON_ENDPOINTS = [
     ),
     pytest.param(
         "get_hourly_forecast_data", URL_FORECAST_HOURLY, "15030", id="forecast-hourly"
+    ),
+    pytest.param(
+        "get_medium_term_forecast_data",
+        URL_FORECAST_MEDIUM_TERM,
+        "15030",
+        id="forecast-medium-term",
     ),
 ]
 

@@ -41,6 +41,7 @@ Town hall or city data methods:
 ```python
 meteogalicia.get_forecast_data("32054")
 meteogalicia.get_hourly_forecast_data("32054")
+meteogalicia.get_medium_term_forecast_data("32054")
 meteogalicia.get_observation_data("15023")
 ```
 Parameter id's are available at https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf 

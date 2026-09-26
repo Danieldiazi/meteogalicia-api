@@ -42,6 +42,8 @@ Town hall or city data methods:
 meteogalicia.get_forecast_data("32054")
 meteogalicia.get_hourly_forecast_data("32054")
 meteogalicia.get_medium_term_forecast_data("32054")
+meteogalicia.get_warnings_data("32054")
+meteogalicia.get_max_warning_levels_data("32054")
 meteogalicia.get_observation_data("15023")
 ```
 Parameter id's are available at https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Concello_es.pdf 
@@ -85,6 +87,32 @@ if data is not None:
 Official response schemas and weather codes:
 [hourly forecast](https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_Horaria_Concello_es.pdf)
 and [medium term forecast](https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_MPrazo_es.pdf).
+
+Warning methods:
+
+```python
+# Detailed warnings: level, alert type and validity period.
+warnings = meteogalicia.get_warnings_data("15030", day=-1)
+
+# MeteoGalicia's own maximum warning level summary.
+levels = meteogalicia.get_max_warning_levels_data("15030", day=-1)
+```
+
+The optional `day` argument accepts `0` (today), `1` (tomorrow), `2`
+(the day after tomorrow) and `-1` (all available days). Both methods return
+the original MeteoGalicia JSON dictionary when the expected list is present.
+An empty list is a valid response: for detailed warnings it means there are no
+warnings for that query. Malformed responses and request failures return `None`.
+
+- `get_warnings_data()` uses `jsonAvisosConcellos.action` and exposes individual
+  warnings, including `idNivel`, `dataAviso`, `dataIni`, `dataFin`,
+  `idTipoAlerta`, `tipoalerta_gl` and `tipoalerta_es`.
+- `get_max_warning_levels_data()` uses `jsonConcellosNivelMax.action` and exposes
+  MeteoGalicia's `nivelMax` summary (0 normal, 1 yellow, 2 orange, 3 red).
+
+Official documentation:
+[complete municipal warnings](https://meteo-estaticos.xunta.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_AvisoConcello_gl.pdf)
+and [maximum municipal warning level](https://meteo-estaticos.xunta.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_AvisoConcelloNivelMax_gl.pdf).
 
 Station methods:
 ```python

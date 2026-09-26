@@ -55,10 +55,14 @@ def test_hourly_forecast_is_returned_unchanged():
         HOURLY_UNKNOWN_CODE,
         {"predHoraria": None},
         {"predHoraria": {"idConcello": 15030, "listaPredDiaHoraria": None}},
+        {"predHoraria": {"idConcello": 15030}},
         {},
         [],
     ],
-    ids=["unknown-code", "null-prediction", "null-list", "missing-key", "not-a-dict"],
+    ids=[
+        "unknown-code", "null-prediction", "null-list", "missing-list",
+        "missing-key", "not-a-dict",
+    ],
 )
 @responses.activate
 def test_hourly_forecast_without_data_returns_none(payload):
@@ -112,13 +116,42 @@ def test_medium_term_forecast_is_returned_unchanged():
         MEDIUM_TERM_UNKNOWN_CODE,
         {"predMPrazo": None},
         {"predMPrazo": {"idConcello": 15030, "listaPredDiaMPrazo": None}},
+        {"predMPrazo": {"idConcello": 15030}},
         {},
         [],
     ],
-    ids=["unknown-code", "null-prediction", "null-list", "missing-key", "not-a-dict"],
+    ids=[
+        "unknown-code", "null-prediction", "null-list", "missing-list",
+        "missing-key", "not-a-dict",
+    ],
 )
 @responses.activate
 def test_medium_term_forecast_without_data_returns_none(payload):
     responses.get(URL_FORECAST_MEDIUM_TERM.format("99999"), json=payload)
 
     assert MeteoGalicia().get_medium_term_forecast_data("99999") is None
+
+
+@pytest.mark.parametrize(
+    "method,url,root,key",
+    [
+        (
+            "get_hourly_forecast_data", URL_FORECAST_HOURLY,
+            "predHoraria", "listaPredDiaHoraria",
+        ),
+        (
+            "get_medium_term_forecast_data", URL_FORECAST_MEDIUM_TERM,
+            "predMPrazo", "listaPredDiaMPrazo",
+        ),
+    ],
+    ids=["hourly", "medium-term"],
+)
+@pytest.mark.parametrize(
+    "days", ["bad", {"error": "bad"}, 42, True],
+    ids=["string", "object", "number", "boolean"],
+)
+@responses.activate
+def test_forecast_with_non_list_days_returns_none(method, url, root, key, days):
+    responses.get(url.format("15030"), json={root: {key: days}})
+
+    assert getattr(MeteoGalicia(), method)("15030") is None

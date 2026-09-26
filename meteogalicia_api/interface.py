@@ -89,19 +89,21 @@ class MeteoGalicia:
 
     def get_warnings_data(self, id, day=-1) -> Optional[Dict[str, Any]]:
         """Return detailed municipal weather warnings, including an empty valid list."""
-        r = self._do_get(URL_WARNINGS, id, day)
-        warnings = r.get("listaAvisosConcellos") if isinstance(r, dict) else None
-        if not isinstance(warnings, list):
-            self.logger.debug(f"No valid warning data for code: {id}")
-            return None
-        return r
+        return self._get_warning_days(URL_WARNINGS, id, day, "listaAvisosConcellos")
 
     def get_max_warning_levels_data(self, id, day=-1) -> Optional[Dict[str, Any]]:
         """Return MeteoGalicia's maximum warning level for the requested day(s)."""
-        r = self._do_get(URL_MAX_WARNING_LEVELS, id, day)
-        levels = r.get("listaNiveisMaximos") if isinstance(r, dict) else None
-        if not isinstance(levels, list):
-            self.logger.debug(f"No valid maximum warning level data for code: {id}")
+        return self._get_warning_days(URL_MAX_WARNING_LEVELS, id, day, "listaNiveisMaximos")
+
+    def _get_warning_days(self, url, id, day, list_key) -> Optional[Dict[str, Any]]:
+        """Validate daily warning lists while preserving the original JSON."""
+        r = self._do_get(url, id, day)
+        days = r.get("listaDiaConcellos") if isinstance(r, dict) else None
+        if not isinstance(days, list) or any(
+            not isinstance(item, dict) or not isinstance(item.get(list_key), list)
+            for item in days
+        ):
+            self.logger.debug(f"No valid {list_key} data for code: {id}")
             return None
         return r
 

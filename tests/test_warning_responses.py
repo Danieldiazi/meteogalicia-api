@@ -1,4 +1,7 @@
-"""Municipal warning endpoint responses."""
+"""Municipal warning responses, including snapshots from the public service."""
+
+import json
+from pathlib import Path
 
 import pytest
 import responses
@@ -10,104 +13,76 @@ from meteogalicia_api.interface import (
 )
 
 
-WARNINGS_PAYLOAD = {
-    "dia": 0,
-    "listaAvisosConcellos": [
-        {
-            "idconcello": 15030,
-            "nomeConcello": "A Coruña",
-            "idNivel": 2,
-            "dataAviso": "2026-09-26T12:00:00",
-            "dataIni": "2026-09-27T06:00:00",
-            "dataFin": "2026-09-27T18:00:00",
-            "idTipoAlerta": 1,
-            "tipoalerta_gl": "Vento",
-            "tipoalerta_es": "Viento",
-        }
-    ],
-}
+ENDPOINTS = [
+    ("get_warnings_data", URL_WARNINGS, "listaAvisosConcellos", "warnings"),
+    ("get_max_warning_levels_data", URL_MAX_WARNING_LEVELS, "listaNiveisMaximos", "warning_levels"),
+]
 
-MAX_LEVELS_PAYLOAD = {
-    "dia": -1,
-    "listaNiveisMaximos": [
-        {"idconcello": 15030, "nomeConcello": "A Coruña", "nivelMax": 0},
-        {"idconcello": 15030, "nomeConcello": "A Coruña", "nivelMax": 2},
-        {"idconcello": 15030, "nomeConcello": "A Coruña", "nivelMax": 1},
-    ],
-}
+
+@pytest.mark.parametrize("method,url,key,fixture", ENDPOINTS)
+@pytest.mark.parametrize("day,suffix", [(-1, "all_days"), (1, "tomorrow")])
+@responses.activate
+def test_real_responses_are_returned_unchanged(method, url, key, fixture, day, suffix):
+    payload = json.loads(
+        (Path(__file__).parent / "fixtures" / f"{fixture}_{suffix}.json").read_text(encoding="utf-8")
+    )
+    responses.get(url.format("15030", day), json=payload)
+
+    assert getattr(MeteoGalicia(), method)("15030", day=day) == payload
+
+
+@pytest.mark.parametrize("method,url,key,fixture", ENDPOINTS)
+@responses.activate
+def test_empty_daily_lists_are_valid(method, url, key, fixture):
+    payload = {"listaDiaConcellos": [{"dia": 0, key: []}]}
+    responses.get(url.format("15030", 0), json=payload)
+
+    assert getattr(MeteoGalicia(), method)("15030", day=0) == payload
 
 
 @responses.activate
-def test_warnings_are_returned_unchanged():
-    responses.get(URL_WARNINGS.format("15030", -1), json=WARNINGS_PAYLOAD)
+def test_warning_details_and_unknown_fields_are_preserved():
+    warning = {
+        "idConcello": 15030,
+        "idNivel": 2,
+        "dataIni": "2026-09-27T06:00:00",
+        "dataFin": "2026-09-27T18:00:00",
+        "tipoalerta_es": "Viento",
+        "future_field": {"keep": True},
+    }
+    payload = {"listaDiaConcellos": [{"dia": 1, "listaAvisosConcellos": [warning]}]}
+    responses.get(URL_WARNINGS.format("15030", -1), json=payload)
 
-    assert MeteoGalicia().get_warnings_data("15030") == WARNINGS_PAYLOAD
-
-
-@responses.activate
-def test_warnings_support_explicit_day():
-    responses.get(URL_WARNINGS.format("15030", 1), json=WARNINGS_PAYLOAD)
-
-    assert MeteoGalicia().get_warnings_data("15030", day=1) == WARNINGS_PAYLOAD
-
-
-@responses.activate
-def test_empty_warning_list_is_valid():
-    payload = {"dia": 0, "listaAvisosConcellos": []}
-    responses.get(URL_WARNINGS.format("15030", 0), json=payload)
-
-    assert MeteoGalicia().get_warnings_data("15030", day=0) == payload
+    assert MeteoGalicia().get_warnings_data("15030") == payload
 
 
-@responses.activate
-def test_max_warning_levels_are_returned_unchanged():
-    responses.get(URL_MAX_WARNING_LEVELS.format("15030", -1), json=MAX_LEVELS_PAYLOAD)
-
-    assert MeteoGalicia().get_max_warning_levels_data("15030") == MAX_LEVELS_PAYLOAD
-
-
-@responses.activate
-def test_empty_max_warning_level_list_is_valid():
-    payload = {"dia": -1, "listaNiveisMaximos": []}
-    responses.get(URL_MAX_WARNING_LEVELS.format("15030", -1), json=payload)
-
-    assert MeteoGalicia().get_max_warning_levels_data("15030") == payload
-
-
-@pytest.mark.parametrize(
-    "method,url,key",
-    [
-        ("get_warnings_data", URL_WARNINGS, "listaAvisosConcellos"),
-        ("get_max_warning_levels_data", URL_MAX_WARNING_LEVELS, "listaNiveisMaximos"),
-    ],
-)
+@pytest.mark.parametrize("method,url,key,fixture", ENDPOINTS)
 @pytest.mark.parametrize(
     "payload",
-    [
-        {},
-        [],
-        {"wrong": []},
-        {"value": None},
-    ],
+    [None, {}, [], {"listaDiaConcellos": None}, {"listaDiaConcellos": {}},
+     {"listaDiaConcellos": [None]}, {"listaDiaConcellos": [{"dia": 0}]},
+     {"listaDiaConcellos": [{"dia": 0, "wrong": []}]}],
 )
 @responses.activate
-def test_warning_methods_reject_invalid_payloads(method, url, key, payload):
-    if isinstance(payload, dict) and "value" in payload:
-        payload = {key: payload["value"]}
+def test_warning_methods_reject_invalid_payloads(method, url, key, fixture, payload):
     responses.get(url.format("15030", -1), json=payload)
 
     assert getattr(MeteoGalicia(), method)("15030") is None
 
 
-@pytest.mark.parametrize(
-    "method,url",
-    [
-        ("get_warnings_data", URL_WARNINGS),
-        ("get_max_warning_levels_data", URL_MAX_WARNING_LEVELS),
-    ],
-)
+@pytest.mark.parametrize("method,url,key,fixture", ENDPOINTS)
+@pytest.mark.parametrize("items", [None, {}, "invalid"])
 @responses.activate
-def test_warning_methods_return_none_on_http_error(method, url):
+def test_invalid_daily_list_is_rejected_even_after_a_valid_day(method, url, key, fixture, items):
+    payload = {"listaDiaConcellos": [{"dia": 0, key: []}, {"dia": 1, key: items}]}
+    responses.get(url.format("15030", -1), json=payload)
+
+    assert getattr(MeteoGalicia(), method)("15030") is None
+
+
+@pytest.mark.parametrize("method,url,key,fixture", ENDPOINTS)
+@responses.activate
+def test_warning_methods_return_none_on_http_error(method, url, key, fixture):
     responses.get(url.format("15030", -1), status=500)
 
     assert getattr(MeteoGalicia(), method)("15030") is None

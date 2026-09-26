@@ -100,9 +100,20 @@ levels = meteogalicia.get_max_warning_levels_data("15030", day=-1)
 
 The optional `day` argument accepts `0` (today), `1` (tomorrow), `2`
 (the day after tomorrow) and `-1` (all available days). Both methods return
-the original MeteoGalicia JSON dictionary when the expected list is present.
-An empty list is a valid response: for detailed warnings it means there are no
-warnings for that query. Malformed responses and request failures return `None`.
+the original MeteoGalicia JSON dictionary. In both endpoints, including requests
+for a single day, `listaDiaConcellos` contains day objects with a `dia` field and
+either `listaAvisosConcellos` or `listaNiveisMaximos`. Select days by `dia`, not
+their position in the list.
+
+```python
+if warnings is not None:
+    for daily in warnings["listaDiaConcellos"]:
+        print(daily["dia"], daily["listaAvisosConcellos"])
+```
+
+An empty daily list is a valid response: for detailed warnings it means there
+are no warnings for that day. Malformed responses and request failures return
+`None`.
 
 - `get_warnings_data()` uses `jsonAvisosConcellos.action` and exposes individual
   warnings, including `idNivel`, `dataAviso`, `dataIni`, `dataFin`,

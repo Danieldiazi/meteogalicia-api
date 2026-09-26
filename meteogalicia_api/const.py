@@ -6,6 +6,7 @@ URL_FORECAST_MEDIUM_TERM = "https://servizos.meteogalicia.gal/mgrss/predicion/js
 URL_OBSERVATION = "https://servizos.meteogalicia.gal/mgrss/observacion/observacionConcellos.action?idConcello={}"
 URL_OBSERVATION_DAILYDATA_BY_STATION = "https://servizos.meteogalicia.gal/mgrss/observacion/datosDiariosEstacionsMeteo.action?idEst={}"
 URL_OBSERVATION_LAST10MINDATA_BY_STATION = "https://servizos.meteogalicia.gal/mgrss/observacion/ultimos10minEstacionsMeteo.action?idEst={}"
+URL_STATIONS = "https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action?request_locale=gl"
 URL_FORECAST_TIDE = "https://servizos.meteogalicia.gal/mgrss/predicion/rssMareas.action?idPorto={}&dataIni={}&dataFin={}"
 
 URL_WARNINGS = "https://servizos.meteogalicia.gal/mgrss/predicion/adversos/jsonAvisosConcellos.action?idConcello={}&dia={}"

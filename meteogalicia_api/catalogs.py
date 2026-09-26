@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import asin, cos, radians, sin, sqrt
 from typing import Any, Dict, List, Optional
 
 PROVINCES = ("A Coruña", "Lugo", "Ourense", "Pontevedra")
@@ -165,3 +166,57 @@ def filter_stations(
             continue
         result.append(station)
     return result
+
+
+def _distance_km(
+    latitude: float,
+    longitude: float,
+    station_latitude: float,
+    station_longitude: float,
+) -> float:
+    """Return great-circle distance in kilometres using the Haversine formula."""
+    earth_radius_km = 6371.0088
+    lat1 = radians(latitude)
+    lat2 = radians(station_latitude)
+    delta_lat = radians(station_latitude - latitude)
+    delta_lon = radians(station_longitude - longitude)
+
+    haversine = (
+        sin(delta_lat / 2) ** 2
+        + cos(lat1) * cos(lat2) * sin(delta_lon / 2) ** 2
+    )
+    return 2 * earth_radius_km * asin(sqrt(haversine))
+
+
+def sort_stations_by_distance(
+    stations: List[Dict[str, Any]],
+    latitude: float,
+    longitude: float,
+) -> List[Dict[str, Any]]:
+    """Return stations with coordinates ordered by distance from a point.
+
+    A shallow copy of each station is returned with a distance_km field.
+    Stations without valid lat/lon values are omitted because their distance
+    cannot be determined.
+    """
+    ranked: List[Dict[str, Any]] = []
+    for station in stations:
+        if not isinstance(station, dict):
+            continue
+        try:
+            station_latitude = float(station["lat"])
+            station_longitude = float(station["lon"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        item = dict(station)
+        item["distance_km"] = _distance_km(
+            float(latitude),
+            float(longitude),
+            station_latitude,
+            station_longitude,
+        )
+        ranked.append(item)
+
+    ranked.sort(key=lambda item: item["distance_km"])
+    return ranked

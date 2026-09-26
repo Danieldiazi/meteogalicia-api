@@ -1,0 +1,104 @@
+name: Publish to PyPI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/publish.yml"
+      - "setup.py"
+      - "setup.cfg"
+      - "MANIFEST.in"
+      - "requirements*.txt"
+      - "meteogalicia_api/**"
+      - "tests/**"
+      - "README.md"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and build distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out release or pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install build and test tools
+        run: python -m pip install build twine -r requirements-dev.txt .
+
+      - name: Run unit tests
+        run: python -m pytest -q
+
+      - name: Build wheel and source distribution
+        run: python -m build
+
+      - name: Check distribution metadata
+        run: python -m twine check --strict dist/*
+
+      - name: Check release tag matches package version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from email.parser import BytesParser
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheels = list(Path("dist").glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit("Expected exactly one wheel")
+          with ZipFile(wheels[0]) as wheel:
+              metadata_file = next(
+                  name for name in wheel.namelist()
+                  if name.endswith(".dist-info/METADATA")
+              )
+              version = BytesParser().parsebytes(wheel.read(metadata_file))["Version"]
+          expected = f"v{version}"
+          if os.environ["RELEASE_TAG"] != expected:
+              raise SystemExit(f"Release tag must be {expected}, matching setup.py")
+          print(f"Validated release {expected}")
+          PY
+
+      - name: Store distributions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish distributions to PyPI
+    if: github.event_name == 'release' && !github.event.release.prerelease && github.repository == 'Danieldiazi/meteogalicia-api'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/meteogalicia-api/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-distributions
+          path: dist/
+
+      - name: Publish using PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1

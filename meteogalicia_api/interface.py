@@ -11,6 +11,8 @@ from .const import (
     URL_FORECAST_HOURLY,
     URL_FORECAST_MEDIUM_TERM,
     URL_FORECAST_TIDE,
+    URL_WARNINGS,
+    URL_MAX_WARNING_LEVELS,
     URL_OBSERVATION,
     URL_OBSERVATION_DAILYDATA_BY_STATION,
     URL_OBSERVATION_LAST10MINDATA_BY_STATION,
@@ -24,17 +26,18 @@ class MeteoGalicia:
         self._session = session if session is not None else requests.Session()
         self._timeout = timeout
     
-    def _do_get(self, url, id) -> Optional[Dict[str, Any]]:
+    def _do_get(self, url, *args) -> Optional[Dict[str, Any]]:
         result = None
+        identifier = args[0] if args else "unknown"
         try:
-            r = self._session.get(url.format(id), timeout=self._timeout)
+            r = self._session.get(url.format(*args), timeout=self._timeout)
             r.raise_for_status()
-            self.logger.debug(f"Data received for {id}")
+            self.logger.debug(f"Data received for {identifier}")
             result = r.json()
         except requests.exceptions.RequestException as exc:
-            self.logger.error(f"Request error for code: {id} - {exc}")
+            self.logger.error(f"Request error for code: {identifier} - {exc}")
         except ValueError as exc:
-            self.logger.error(f"Invalid JSON for code: {id} - {exc}")
+            self.logger.error(f"Invalid JSON for code: {identifier} - {exc}")
         return result
 
     def _do_getGeoRSS(self, url, id, date1, date2) -> Optional[Dict[str, Any]]:
@@ -81,6 +84,24 @@ class MeteoGalicia:
         if not isinstance(days, list) or not days:
             # An unknown code also returns 200 with an empty list.
             self.logger.debug(f"No medium term forecast data for code: {id}")
+            return None
+        return r
+
+    def get_warnings_data(self, id, day=-1) -> Optional[Dict[str, Any]]:
+        """Return detailed municipal weather warnings, including an empty valid list."""
+        r = self._do_get(URL_WARNINGS, id, day)
+        warnings = r.get("listaAvisosConcellos") if isinstance(r, dict) else None
+        if not isinstance(warnings, list):
+            self.logger.debug(f"No valid warning data for code: {id}")
+            return None
+        return r
+
+    def get_max_warning_levels_data(self, id, day=-1) -> Optional[Dict[str, Any]]:
+        """Return MeteoGalicia's maximum warning level for the requested day(s)."""
+        r = self._do_get(URL_MAX_WARNING_LEVELS, id, day)
+        levels = r.get("listaNiveisMaximos") if isinstance(r, dict) else None
+        if not isinstance(levels, list):
+            self.logger.debug(f"No valid maximum warning level data for code: {id}")
             return None
         return r
 

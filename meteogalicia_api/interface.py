@@ -6,7 +6,11 @@ from xml.parsers.expat import ExpatError
 import requests
 import xmltodict
 
-from .catalogs import filter_stations, get_concellos as get_static_concellos
+from .catalogs import (
+    filter_stations,
+    get_concellos as get_static_concellos,
+    sort_stations_by_distance,
+)
 from .const import (
     URL_FORECAST,
     URL_FORECAST_HOURLY,
@@ -73,6 +77,19 @@ class MeteoGalicia:
             self.logger.debug("No valid station catalog available")
             return None
         return filter_stations(stations, province=province, concello=concello)
+
+    def get_nearest_stations(
+        self,
+        latitude: float,
+        longitude: float,
+        province: Optional[str] = None,
+        concello: Optional[str] = None,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Return active stations ordered by distance from a geographic point."""
+        stations = self.get_stations(province=province, concello=concello)
+        if stations is None:
+            return None
+        return sort_stations_by_distance(stations, latitude, longitude)
 
     def get_forecast_data(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_FORECAST,id)

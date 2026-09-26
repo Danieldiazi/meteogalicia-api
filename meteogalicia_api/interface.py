@@ -57,7 +57,7 @@ class MeteoGalicia:
         if (r==None ):
             self.logger.error(f"No data for code: {id}")
             return None
-        elif ((r['predConcello'])==None):
+        elif r.get("predConcello") is None:
                 self.logger.debug(f"No forecast data for {id}")
                 return None
         return r
@@ -85,7 +85,7 @@ class MeteoGalicia:
         if (r==None):
             self.logger.error(f"No data for code: {id}")
             return None
-        elif (len(r['listaObservacionConcellos'])==0):
+        elif len(r.get("listaObservacionConcellos", [])) == 0:
              self.logger.debug(f"No observation data for {id}")
              return None
         return r

@@ -1,11 +1,12 @@
 """Client for the Meteogalicia REST API."""
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from xml.parsers.expat import ExpatError
 import requests
 import xmltodict
 
+from .catalogs import filter_stations, get_concellos as get_static_concellos
 from .const import (
     URL_FORECAST,
     URL_FORECAST_HOURLY,
@@ -16,6 +17,7 @@ from .const import (
     URL_OBSERVATION,
     URL_OBSERVATION_DAILYDATA_BY_STATION,
     URL_OBSERVATION_LAST10MINDATA_BY_STATION,
+    URL_STATIONS,
 )
 
 class MeteoGalicia:
@@ -25,7 +27,7 @@ class MeteoGalicia:
         self.logger.setLevel(log_level)
         self._session = session if session is not None else requests.Session()
         self._timeout = timeout
-    
+
     def _do_get(self, url, *args) -> Optional[Dict[str, Any]]:
         result = None
         identifier = args[0] if args else "unknown"
@@ -55,6 +57,23 @@ class MeteoGalicia:
             self.logger.error(f"Invalid XML for code: {id} - {exc}")
         return result
 
+    def get_concellos(self, province: Optional[str] = None) -> List[Dict[str, str]]:
+        """Return available municipal identifiers, optionally filtered by province."""
+        return get_static_concellos(province)
+
+    def get_stations(
+        self,
+        province: Optional[str] = None,
+        concello: Optional[str] = None,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Return active weather stations, optionally filtered by province/concello."""
+        data = self._do_get(URL_STATIONS)
+        stations = data.get("listaEstacionsMeteo") if isinstance(data, dict) else None
+        if not isinstance(stations, list):
+            self.logger.debug("No valid station catalog available")
+            return None
+        return filter_stations(stations, province=province, concello=concello)
+
     def get_forecast_data(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_FORECAST,id)
         if (r==None ):
@@ -64,14 +83,13 @@ class MeteoGalicia:
                 self.logger.debug(f"No forecast data for {id}")
                 return None
         return r
-    
+
     def get_hourly_forecast_data(self, id) -> Optional[Dict[str, Any]]:
         """Return the original hourly forecast JSON, or None when unavailable."""
         r = self._do_get(URL_FORECAST_HOURLY,id)
         pred = r.get('predHoraria') if isinstance(r, dict) else None
         days = pred.get('listaPredDiaHoraria') if isinstance(pred, dict) else None
         if not isinstance(days, list) or not days:
-            # An unknown code also returns 200 with an empty list.
             self.logger.debug(f"No hourly forecast data for code: {id}")
             return None
         return r
@@ -82,7 +100,6 @@ class MeteoGalicia:
         pred = r.get('predMPrazo') if isinstance(r, dict) else None
         days = pred.get('listaPredDiaMPrazo') if isinstance(pred, dict) else None
         if not isinstance(days, list) or not days:
-            # An unknown code also returns 200 with an empty list.
             self.logger.debug(f"No medium term forecast data for code: {id}")
             return None
         return r
@@ -116,21 +133,21 @@ class MeteoGalicia:
              self.logger.debug(f"No observation data for {id}")
              return None
         return r
-    
+
     def get_observation_dailydata_by_station(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_OBSERVATION_DAILYDATA_BY_STATION,id)
         if (r==None) or (not('listDatosDiarios' in r)) or (len(r['listDatosDiarios'])==0):
-             self.logger.debug(f"No observation info (daily data) of station code: {id}")      
+             self.logger.debug(f"No observation info (daily data) of station code: {id}")
              return None
         return r
-    
+
     def get_observation_last10mindata_by_station(self, id) -> Optional[Dict[str, Any]]:
         r = self._do_get(URL_OBSERVATION_LAST10MINDATA_BY_STATION,id)
         if (r==None) or (not('listUltimos10min' in r)) or (len(r['listUltimos10min'])==0):
              self.logger.debug(f"No observation info (last 10 min data) of station code: {id}")
              return None
         return r
-    
+
     def get_forecast_tide(self, id) -> Optional[Dict[str, Any]]:
         today = datetime.now()
         yesterday = today - timedelta(days=1)
@@ -140,7 +157,7 @@ class MeteoGalicia:
         data = None
 
         r = self._do_getGeoRSS(URL_FORECAST_TIDE,id,strYesterday,strTomorrow)
-        
+
         if (r==None):
             self.logger.error(f"Unavailable forecast tide data for code: {id}")
         else:
@@ -163,9 +180,5 @@ class MeteoGalicia:
             except (KeyError, IndexError, TypeError) as exc:
                 self.logger.error(f"Unexpected tide payload for code: {id} - {exc}")
                 return None
-
-             
-
-             
 
         return data

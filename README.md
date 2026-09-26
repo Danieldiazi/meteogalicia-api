@@ -125,12 +125,35 @@ Official documentation:
 [complete municipal warnings](https://meteo-estaticos.xunta.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_AvisoConcello_gl.pdf)
 and [maximum municipal warning level](https://meteo-estaticos.xunta.gal/datosred/infoweb/meteo/docs/rss/JSON_Pred_AvisoConcelloNivelMax_gl.pdf).
 
+Configuration catalogs:
+
+```python
+# Static municipal catalog, optionally filtered by province.
+concellos = meteogalicia.get_concellos("A Coruña")
+
+# Live MeteoGalicia station catalog, optionally filtered by province/concello.
+stations = meteogalicia.get_stations(
+    province="A Coruña",
+    concello="Santiago de Compostela",
+)
+```
+
+`get_concellos()` returns dictionaries containing `idConcello`, `concello` and
+`provincia`. Municipal identifiers are maintained as a static catalog because
+they are effectively stable and are used by forecast and warning services.
+
+`get_stations()` reads MeteoGalicia's current station catalog and returns the
+original station dictionaries, optionally filtered by province and concello.
+Station identifiers (`idEstacion`) are separate from municipal identifiers
+(`idConcello`); callers should not interchange them.
+
 Station methods:
 ```python
 meteogalicia.get_observation_dailydata_by_station("10144")
 meteogalicia.get_observation_last10mindata_by_station("10144")
 ```
-Parameter station id's are available at https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action
+Parameter station id's and the live station catalog are available at
+https://servizos.meteogalicia.gal/mgrss/observacion/listaEstacionsMeteo.action?request_locale=gl
 
 Tides methods:
 

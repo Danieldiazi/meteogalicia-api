@@ -109,27 +109,7 @@ def test_invalid_json_returns_none(method, url, identifier, body):
     assert getattr(MeteoGalicia(), method)(identifier) is None
 
 
-@pytest.mark.parametrize(
-    "method,url,identifier",
-    [
-        pytest.param(
-            "get_forecast_data", URL_FORECAST, "15030", id="forecast",
-            marks=pytest.mark.xfail(
-                strict=True, raises=KeyError,
-                reason="Known limitation: get_forecast_data indexes missing predConcello",
-            ),
-        ),
-        pytest.param(
-            "get_observation_data", URL_OBSERVATION, "15030", id="observation",
-            marks=pytest.mark.xfail(
-                strict=True, raises=KeyError,
-                reason="Known limitation: get_observation_data indexes missing listaObservacionConcellos",
-            ),
-        ),
-        JSON_ENDPOINTS[2],
-        JSON_ENDPOINTS[3],
-    ],
-)
+@pytest.mark.parametrize("method,url,identifier", JSON_ENDPOINTS)
 @responses.activate
 def test_missing_payload_key_returns_none(method, url, identifier):
     responses.get(url.format(identifier), json={})

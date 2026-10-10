@@ -44,6 +44,7 @@ tomorrowDate and yesterdayDate are local calendar dates in ISO format.
 The tomorrowTides field contains all tides for tomorrow, while
 tomorrowFirstTide remains available. RSS items are selected by forecast date
 rather than their order in the response.
+Timezone rules fall back to the packaged tzdata when the host has no IANA database.
 
 Town hall or city data methods:
 ```python

@@ -1,6 +1,7 @@
 """Tide requests and parsing with deterministic dates and compact RSS fixtures."""
 
 from datetime import datetime, timedelta
+import zoneinfo
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -88,6 +89,20 @@ def test_tide_output_preserves_the_existing_contract(tide_url, tide_items):
             {"@estado": "Baixamar", "@hora": "03:40", "@altura": "1,1"},
         ],
     }
+
+
+@responses.activate
+def test_tide_forecast_without_system_timezone_database(tide_url, tide_items):
+    """Minimal containers can use the packaged timezone rules."""
+    previous_path = zoneinfo.TZPATH
+    zoneinfo.reset_tzpath([])
+    ZoneInfo.clear_cache()
+    try:
+        responses.get(tide_url, body=_rss(tide_items), content_type="application/xml")
+        assert MeteoGalicia().get_forecast_tide("3")["todayDate"] == "2026-01-01"
+    finally:
+        zoneinfo.reset_tzpath(previous_path)
+        ZoneInfo.clear_cache()
 
 
 @pytest.mark.parametrize("error", [requests.Timeout, requests.ConnectionError])

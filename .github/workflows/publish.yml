@@ -6,6 +6,7 @@ on:
       - ".github/workflows/publish.yml"
       - "setup.py"
       - "setup.cfg"
+      - "pyproject.toml"
       - "MANIFEST.in"
       - "requirements*.txt"
       - "meteogalicia_api/**"
@@ -71,7 +72,7 @@ jobs:
               version = BytesParser().parsebytes(wheel.read(metadata_file))["Version"]
           expected = f"v{version}"
           if os.environ["RELEASE_TAG"] != expected:
-              raise SystemExit(f"Release tag must be {expected}, matching setup.py")
+              raise SystemExit(f"Release tag must be {expected}, matching pyproject.toml")
           print(f"Validated release {expected}")
           PY
 

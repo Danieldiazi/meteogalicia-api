@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 
 import responses
+from zoneinfo import ZoneInfo
+
+from meteogalicia_api import interface
 
 from meteogalicia_api.interface import (
     MeteoGalicia,
@@ -97,9 +100,15 @@ def test_get_observation_last10mindata_by_station_empty_list():
 
 
 @responses.activate
-def test_get_forecast_tide_ok():
+def test_get_forecast_tide_ok(monkeypatch):
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 1, 1, 12, tzinfo=tz)
+
+    monkeypatch.setattr(interface, "datetime", FrozenDateTime)
     api = MeteoGalicia()
-    today = datetime.now()
+    today = FrozenDateTime.now(ZoneInfo("Europe/Madrid"))
     str_yesterday = (today - timedelta(days=1)).strftime("%d/%m/%Y")
     str_tomorrow = (today + timedelta(days=1)).strftime("%d/%m/%Y")
     xml_body = """<?xml version="1.0" encoding="UTF-8"?>
@@ -180,7 +189,7 @@ def test_get_forecast_tide_ok():
 @responses.activate
 def test_get_forecast_tide_http_error():
     api = MeteoGalicia()
-    today = datetime.now()
+    today = datetime.now(ZoneInfo("Europe/Madrid"))
     str_yesterday = (today - timedelta(days=1)).strftime("%d/%m/%Y")
     str_tomorrow = (today + timedelta(days=1)).strftime("%d/%m/%Y")
     responses.add(
@@ -197,7 +206,7 @@ def test_get_forecast_tide_http_error():
 @responses.activate
 def test_get_forecast_tide_unexpected_payload():
     api = MeteoGalicia()
-    today = datetime.now()
+    today = datetime.now(ZoneInfo("Europe/Madrid"))
     str_yesterday = (today - timedelta(days=1)).strftime("%d/%m/%Y")
     str_tomorrow = (today + timedelta(days=1)).strftime("%d/%m/%Y")
     xml_body = """<?xml version="1.0" encoding="UTF-8"?>

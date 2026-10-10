@@ -14,7 +14,7 @@ DESCRIPTION = (
 URL = "https://github.com/danieldiazi/meteogalicia-api"
 EMAIL = "dandiazde@gmail.com"
 AUTHOR = "danieldiazi"
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 
 here = lambda *a: os.path.join(os.path.dirname(__file__), *a)
 requirements = [x.strip() for x in open(here('requirements.txt')).readlines()]
@@ -30,6 +30,7 @@ except FileNotFoundError:
 
 setup(name=NAME,
       version=VERSION,
+      python_requires=">=3.9",
       description=DESCRIPTION,
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -51,9 +52,6 @@ setup(name=NAME,
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.11'
       ],

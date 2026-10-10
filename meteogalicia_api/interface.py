@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from xml.parsers.expat import ExpatError
+from zoneinfo import ZoneInfo
 import requests
 import xmltodict
 
@@ -166,7 +167,8 @@ class MeteoGalicia:
         return r
 
     def get_forecast_tide(self, id) -> Optional[Dict[str, Any]]:
-        today = datetime.now()
+        """Return dated tides in Galicia local time, independent of RSS order."""
+        today = datetime.now(ZoneInfo("Europe/Madrid"))
         yesterday = today - timedelta(days=1)
         tomorrow =  today + timedelta(days=1)
         strYesterday = yesterday.strftime("%d/%m/%Y")
@@ -185,17 +187,56 @@ class MeteoGalicia:
                 self.logger.error(f"Unexpected tide payload for code: {id}")
                 return None
             try:
-                yesterdayTidesArrayLen = len(items[0]['Mareas:mareas'])
-                data = {}
-                data["pointGeoRSS"] = items[0]['georss:point']
-                data["date"] = items[0]['dc:date']
-                data["portId"] = items[0]['Mareas:idPorto']["#text"]
-                data["portName"] = items[0]['Mareas:nomePorto']["#text"]
-                data["yesterdayLastTide"] = items[0]['Mareas:mareas'][yesterdayTidesArrayLen-1]
-                data["todayTides"] = items[1]['Mareas:mareas']
-                data["tomorrowFirstTide"] = items[2]['Mareas:mareas'][0]
-            except (KeyError, IndexError, TypeError) as exc:
+                by_date = {_tide_prediction_date(item): item for item in items}
+                yesterday_item = by_date[yesterday.date()]
+                today_item = by_date[today.date()]
+                tomorrow_item = by_date[tomorrow.date()]
+                yesterday_tides = _tide_list(yesterday_item)
+                today_tides = _tide_list(today_item)
+                tomorrow_tides = _tide_list(tomorrow_item)
+                # Require the metadata and all three requested days. A missing
+                # day must never silently be assigned another day's tides.
+                yesterday_item['Mareas:idPorto']["#text"]
+                data = {
+                    "pointGeoRSS": today_item['georss:point'],
+                    "date": today_item['dc:date'],
+                    "portId": today_item['Mareas:idPorto']["#text"],
+                    "portName": today_item['Mareas:nomePorto']["#text"],
+                    "yesterdayDate": yesterday.date().isoformat(),
+                    "todayDate": today.date().isoformat(),
+                    "tomorrowDate": tomorrow.date().isoformat(),
+                    "yesterdayLastTide": yesterday_tides[-1],
+                    "todayTides": today_tides,
+                    "tomorrowFirstTide": tomorrow_tides[0],
+                    "tomorrowTides": tomorrow_tides,
+                }
+            except (KeyError, IndexError, TypeError, ValueError) as exc:
                 self.logger.error(f"Unexpected tide payload for code: {id} - {exc}")
                 return None
 
         return data
+
+
+def _tide_prediction_date(item):
+    """Read the forecast's calendar day, not the XML item's position."""
+    if not isinstance(item, dict):
+        raise ValueError("Invalid tide day")
+    prediction = item.get("Mareas:dataPredicion")
+    if isinstance(prediction, dict):
+        prediction = prediction.get("#text")
+    if prediction:
+        return datetime.strptime(prediction, "%d/%m/%Y").date()
+    timestamp = datetime.fromisoformat(item["dc:date"].replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=ZoneInfo("Europe/Madrid"))
+    return timestamp.astimezone(ZoneInfo("Europe/Madrid")).date()
+
+
+def _tide_list(item):
+    """xmltodict represents a single tide as a mapping."""
+    tides = item["Mareas:mareas"]
+    if isinstance(tides, dict):
+        return [tides]
+    if not isinstance(tides, list) or not tides:
+        raise ValueError("Missing tides")
+    return tides

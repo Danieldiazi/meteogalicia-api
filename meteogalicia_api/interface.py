@@ -12,6 +12,14 @@ from .catalogs import (
     get_concellos as get_static_concellos,
     sort_stations_by_distance,
 )
+from .errors import (
+    MeteoGaliciaConnectionError,
+    MeteoGaliciaHTTPError,
+    MeteoGaliciaInvalidResponseError,
+    MeteoGaliciaNoDataError,
+    MeteoGaliciaTimeoutError,
+    retry_after_seconds,
+)
 from .const import (
     URL_FORECAST,
     URL_FORECAST_HOURLY,
@@ -27,43 +35,60 @@ from .const import (
 
 class MeteoGalicia:
     """Class to interact with the MeteoGalicia web service."""
-    def __init__(self, log_level=logging.WARNING, session=None, timeout=15):
+    def __init__(self, log_level=logging.WARNING, session=None, timeout=15,
+                 raise_on_error=False):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
         self._session = session if session is not None else requests.Session()
         self._timeout = timeout
+        self._raise_on_error = raise_on_error
+        self.last_error = None
+
+    def _record_error(self, error, cause=None):
+        """Preserve None-returning callers while exposing typed errors on request."""
+        self.last_error = error
+        self.logger.error("%s", error)
+        if self._raise_on_error:
+            raise error from cause
+        return None
+
+    def _request(self, url, parser):
+        self.last_error = None
+        try:
+            response = self._session.get(url, timeout=self._timeout)
+            response.raise_for_status()
+        except requests.exceptions.Timeout as exc:
+            return self._record_error(
+                MeteoGaliciaTimeoutError("MeteoGalicia request timed out"), exc
+            )
+        except requests.exceptions.HTTPError as exc:
+            response = exc.response
+            status = response.status_code if response is not None else 500
+            delay = retry_after_seconds(response.headers.get("Retry-After")) if response is not None else None
+            return self._record_error(MeteoGaliciaHTTPError(status, delay), exc)
+        except requests.exceptions.RequestException as exc:
+            return self._record_error(
+                MeteoGaliciaConnectionError("Unable to connect to MeteoGalicia"), exc
+            )
+        try:
+            return parser(response)
+        except (ValueError, ExpatError) as exc:
+            return self._record_error(
+                MeteoGaliciaInvalidResponseError("MeteoGalicia returned invalid JSON or XML"), exc
+            )
 
     def _do_get(self, url, *args) -> Optional[Dict[str, Any]]:
-        result = None
-        identifier = args[0] if args else "unknown"
-        try:
-            r = self._session.get(url.format(*args), timeout=self._timeout)
-            r.raise_for_status()
-            self.logger.debug(f"Data received for {identifier}")
-            result = r.json()
-            if not isinstance(result, dict):
-                self.logger.error(f"Expected a JSON object for code: {identifier}")
-                return None
-        except requests.exceptions.RequestException as exc:
-            self.logger.error(f"Request error for code: {identifier} - {exc}")
-        except ValueError as exc:
-            self.logger.error(f"Invalid JSON for code: {identifier} - {exc}")
+        result = self._request(url.format(*args), lambda response: response.json())
+        if self.last_error is None and not isinstance(result, dict):
+            return self._record_error(
+                MeteoGaliciaInvalidResponseError("Expected a JSON object from MeteoGalicia")
+            )
         return result
 
     def _do_getGeoRSS(self, url, id, date1, date2) -> Optional[Dict[str, Any]]:
-        result = None
-        try:
-            r = self._session.get(url.format(id, date1, date2), timeout=self._timeout)
-            r.raise_for_status()
-            self.logger.debug(f"Data received for {id}")
-            xml_data = r.text
-            data_dict = xmltodict.parse(xml_data)
-            result = data_dict
-        except requests.exceptions.RequestException as exc:
-            self.logger.error(f"Request error for code: {id} - {exc}")
-        except ExpatError as exc:
-            self.logger.error(f"Invalid XML for code: {id} - {exc}")
-        return result
+        return self._request(
+            url.format(id, date1, date2), lambda response: xmltodict.parse(response.text)
+        )
 
     def get_concellos(self, province: Optional[str] = None) -> List[Dict[str, str]]:
         """Return available municipal identifiers, optionally filtered by province."""
@@ -78,8 +103,9 @@ class MeteoGalicia:
         data = self._do_get(URL_STATIONS)
         stations = data.get("listaEstacionsMeteo") if isinstance(data, dict) else None
         if not isinstance(stations, list):
-            self.logger.debug("No valid station catalog available")
-            return None
+            if data is None:
+                return None
+            return self._record_error(MeteoGaliciaInvalidResponseError("Invalid station catalog"))
         return filter_stations(stations, province=province, concello=concello)
 
     def get_nearest_stations(
@@ -101,8 +127,7 @@ class MeteoGalicia:
             self.logger.error(f"No data for code: {id}")
             return None
         elif not isinstance(r.get("predConcello"), dict):
-                self.logger.debug(f"No forecast data for {id}")
-                return None
+                return self._record_error(MeteoGaliciaInvalidResponseError("Invalid municipal forecast"))
         return r
 
     def get_hourly_forecast_data(self, id) -> Optional[Dict[str, Any]]:
@@ -111,8 +136,10 @@ class MeteoGalicia:
         pred = r.get('predHoraria') if isinstance(r, dict) else None
         days = pred.get('listaPredDiaHoraria') if isinstance(pred, dict) else None
         if not isinstance(days, list) or not days:
-            self.logger.debug(f"No hourly forecast data for code: {id}")
-            return None
+            if r is None:
+                return None
+            error = MeteoGaliciaNoDataError if days == [] else MeteoGaliciaInvalidResponseError
+            return self._record_error(error("No valid hourly forecast data"))
         return r
 
     def get_medium_term_forecast_data(self, id) -> Optional[Dict[str, Any]]:
@@ -121,8 +148,10 @@ class MeteoGalicia:
         pred = r.get('predMPrazo') if isinstance(r, dict) else None
         days = pred.get('listaPredDiaMPrazo') if isinstance(pred, dict) else None
         if not isinstance(days, list) or not days:
-            self.logger.debug(f"No medium term forecast data for code: {id}")
-            return None
+            if r is None:
+                return None
+            error = MeteoGaliciaNoDataError if days == [] else MeteoGaliciaInvalidResponseError
+            return self._record_error(error("No valid medium term forecast data"))
         return r
 
     def get_warnings_data(self, id, day=-1) -> Optional[Dict[str, Any]]:
@@ -141,8 +170,9 @@ class MeteoGalicia:
             not isinstance(item, dict) or not isinstance(item.get(list_key), list)
             for item in days
         ):
-            self.logger.debug(f"No valid {list_key} data for code: {id}")
-            return None
+            if r is None:
+                return None
+            return self._record_error(MeteoGaliciaInvalidResponseError(f"Invalid {list_key} response"))
         return r
 
     def get_observation_data(self, id) -> Optional[Dict[str, Any]]:
@@ -165,8 +195,10 @@ class MeteoGalicia:
         if not isinstance(observations, list) or not observations or any(
             not isinstance(item, dict) for item in observations
         ):
-            self.logger.debug(f"No valid {list_key} data for code: {id}")
-            return None
+            if response is None:
+                return None
+            error = MeteoGaliciaNoDataError if observations == [] else MeteoGaliciaInvalidResponseError
+            return self._record_error(error(f"No valid {list_key} observations"))
         return response
 
     def get_forecast_tide(self, id) -> Optional[Dict[str, Any]]:
@@ -187,8 +219,7 @@ class MeteoGalicia:
             channel = rss.get("channel") if isinstance(rss, dict) else None
             items = channel.get("item") if isinstance(channel, dict) else None
             if not isinstance(items, list):
-                self.logger.error(f"Unexpected tide payload for code: {id}")
-                return None
+                return self._record_error(MeteoGaliciaInvalidResponseError("Invalid tide forecast"))
             try:
                 by_date = {_tide_prediction_date(item): item for item in items}
                 yesterday_item = by_date[yesterday.date()]
@@ -214,8 +245,7 @@ class MeteoGalicia:
                     "tomorrowTides": tomorrow_tides,
                 }
             except (KeyError, IndexError, TypeError, ValueError) as exc:
-                self.logger.error(f"Unexpected tide payload for code: {id} - {exc}")
-                return None
+                return self._record_error(MeteoGaliciaInvalidResponseError("Invalid dated tide forecast"), exc)
 
         return data
 

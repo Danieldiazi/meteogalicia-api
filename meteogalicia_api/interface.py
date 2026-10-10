@@ -41,6 +41,9 @@ class MeteoGalicia:
             r.raise_for_status()
             self.logger.debug(f"Data received for {identifier}")
             result = r.json()
+            if not isinstance(result, dict):
+                self.logger.error(f"Expected a JSON object for code: {identifier}")
+                return None
         except requests.exceptions.RequestException as exc:
             self.logger.error(f"Request error for code: {identifier} - {exc}")
         except ValueError as exc:
@@ -97,7 +100,7 @@ class MeteoGalicia:
         if (r==None ):
             self.logger.error(f"No data for code: {id}")
             return None
-        elif r.get("predConcello") is None:
+        elif not isinstance(r.get("predConcello"), dict):
                 self.logger.debug(f"No forecast data for {id}")
                 return None
         return r
@@ -143,28 +146,28 @@ class MeteoGalicia:
         return r
 
     def get_observation_data(self, id) -> Optional[Dict[str, Any]]:
-        r = self._do_get(URL_OBSERVATION,id)
-        if (r==None):
-            self.logger.error(f"No data for code: {id}")
-            return None
-        elif len(r.get("listaObservacionConcellos", [])) == 0:
-             self.logger.debug(f"No observation data for {id}")
-             return None
-        return r
+        return self._get_observation_list(URL_OBSERVATION, id, "listaObservacionConcellos")
 
     def get_observation_dailydata_by_station(self, id) -> Optional[Dict[str, Any]]:
-        r = self._do_get(URL_OBSERVATION_DAILYDATA_BY_STATION,id)
-        if (r==None) or (not('listDatosDiarios' in r)) or (len(r['listDatosDiarios'])==0):
-             self.logger.debug(f"No observation info (daily data) of station code: {id}")
-             return None
-        return r
+        return self._get_observation_list(
+            URL_OBSERVATION_DAILYDATA_BY_STATION, id, "listDatosDiarios"
+        )
 
     def get_observation_last10mindata_by_station(self, id) -> Optional[Dict[str, Any]]:
-        r = self._do_get(URL_OBSERVATION_LAST10MINDATA_BY_STATION,id)
-        if (r==None) or (not('listUltimos10min' in r)) or (len(r['listUltimos10min'])==0):
-             self.logger.debug(f"No observation info (last 10 min data) of station code: {id}")
-             return None
-        return r
+        return self._get_observation_list(
+            URL_OBSERVATION_LAST10MINDATA_BY_STATION, id, "listUltimos10min"
+        )
+
+    def _get_observation_list(self, url, id, list_key) -> Optional[Dict[str, Any]]:
+        """Reject missing or malformed observations, preserving valid JSON."""
+        response = self._do_get(url, id)
+        observations = response.get(list_key) if isinstance(response, dict) else None
+        if not isinstance(observations, list) or not observations or any(
+            not isinstance(item, dict) for item in observations
+        ):
+            self.logger.debug(f"No valid {list_key} data for code: {id}")
+            return None
+        return response
 
     def get_forecast_tide(self, id) -> Optional[Dict[str, Any]]:
         """Return dated tides in Galicia local time, independent of RSS order."""

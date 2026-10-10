@@ -146,13 +146,24 @@ def test_missing_payload_key_returns_none(method, url, identifier):
     ],
     ids=["observation", "station-daily", "station-last10min"],
 )
-@pytest.mark.xfail(
-    strict=True,
-    raises=TypeError,
-    reason="Known limitation: observation methods call len() on a null list",
-)
+@pytest.mark.parametrize("invalid", [None, {}, "unavailable", 42, [None], ["bad"]])
 @responses.activate
-def test_null_observation_list_returns_none(method, url, identifier, key):
-    responses.get(url.format(identifier), json={key: None})
+def test_invalid_observation_list_returns_none(method, url, identifier, key, invalid):
+    responses.get(url.format(identifier), json={key: invalid})
 
     assert getattr(MeteoGalicia(), method)(identifier) is None
+
+
+@pytest.mark.parametrize("method,url,identifier", JSON_ENDPOINTS)
+@pytest.mark.parametrize("body", ["null", "[]", '"unavailable"', "42", "true"])
+@responses.activate
+def test_non_object_json_returns_none(method, url, identifier, body):
+    responses.get(url.format(identifier), body=body, content_type="application/json")
+    assert getattr(MeteoGalicia(), method)(identifier) is None
+
+
+@pytest.mark.parametrize("invalid", [[], "unavailable", 42, True])
+@responses.activate
+def test_invalid_forecast_wrapper_returns_none(invalid):
+    responses.get(URL_FORECAST.format("15030"), json={"predConcello": invalid})
+    assert MeteoGalicia().get_forecast_data("15030") is None

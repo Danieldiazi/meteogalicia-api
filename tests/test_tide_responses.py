@@ -1,6 +1,8 @@
 """Tide requests and parsing with deterministic dates and compact RSS fixtures."""
 
 from datetime import datetime, timedelta
+import zoneinfo
+from zoneinfo import ZoneInfo
 
 import pytest
 import requests
@@ -16,8 +18,8 @@ def tide_url(monkeypatch):
 
     class FrozenDateTime(datetime):
         @classmethod
-        def now(cls):
-            return cls(2026, 1, 1, 12)
+        def now(cls, tz=None):
+            return cls(2026, 1, 1, 12, tzinfo=tz)
 
     monkeypatch.setattr(interface, "datetime", FrozenDateTime)
     return URL_FORECAST_TIDE.format("3", "31/12/2025", "02/01/2026")
@@ -66,7 +68,10 @@ def test_tide_output_preserves_the_existing_contract(tide_url, tide_items):
 
     assert MeteoGalicia().get_forecast_tide("3") == {
         "pointGeoRSS": "42.23 -8.71",
-        "date": "2025-12-31T00:00:00Z",
+        "date": "2026-01-01T00:00:00Z",
+        "yesterdayDate": "2025-12-31",
+        "todayDate": "2026-01-01",
+        "tomorrowDate": "2026-01-02",
         "portId": "3",
         "portName": "Vigo",
         "yesterdayLastTide": {
@@ -79,7 +84,25 @@ def test_tide_output_preserves_the_existing_contract(tide_url, tide_items):
         "tomorrowFirstTide": {
             "@estado": "Preamar", "@hora": "03:10", "@altura": "3,2"
         },
+        "tomorrowTides": [
+            {"@estado": "Preamar", "@hora": "03:10", "@altura": "3,2"},
+            {"@estado": "Baixamar", "@hora": "03:40", "@altura": "1,1"},
+        ],
     }
+
+
+@responses.activate
+def test_tide_forecast_without_system_timezone_database(tide_url, tide_items):
+    """Minimal containers can use the packaged timezone rules."""
+    previous_path = zoneinfo.TZPATH
+    zoneinfo.reset_tzpath([])
+    ZoneInfo.clear_cache()
+    try:
+        responses.get(tide_url, body=_rss(tide_items), content_type="application/xml")
+        assert MeteoGalicia().get_forecast_tide("3")["todayDate"] == "2026-01-01"
+    finally:
+        zoneinfo.reset_tzpath(previous_path)
+        ZoneInfo.clear_cache()
 
 
 @pytest.mark.parametrize("error", [requests.Timeout, requests.ConnectionError])
@@ -124,11 +147,6 @@ def test_missing_tide_fields_return_none(tide_url, tide_items, missing):
     assert MeteoGalicia().get_forecast_tide("3") is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="Known limitation: get_forecast_tide assigns days by RSS position, not date",
-)
 @responses.activate
 def test_tide_days_are_selected_by_date(tide_url, tide_items):
     responses.get(tide_url, body=_rss([tide_items[2], tide_items[0], tide_items[1]]))
@@ -154,8 +172,8 @@ def test_tide_days_are_selected_by_date(tide_url, tide_items):
 def test_tide_request_date_window(monkeypatch, today, start, end):
     class FrozenDateTime(datetime):
         @classmethod
-        def now(cls):
-            return today
+        def now(cls, tz=None):
+            return today.replace(tzinfo=tz)
 
     monkeypatch.setattr(interface, "datetime", FrozenDateTime)
     url = URL_FORECAST_TIDE.format("3", start, end)
@@ -170,3 +188,53 @@ def test_tide_request_date_window(monkeypatch, today, start, end):
     assert data is not None
     assert data["todayTides"][0]["@hora"] == "02:10"
     assert responses.calls[0].request.url == url
+
+
+@responses.activate
+def test_tide_window_uses_galicia_date_near_utc_midnight(monkeypatch):
+    """The API calendar day must not depend on the host's timezone."""
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            utc_now = cls(2026, 1, 1, 23, 30, tzinfo=ZoneInfo("UTC"))
+            return utc_now.astimezone(tz)
+
+    monkeypatch.setattr(interface, "datetime", FrozenDateTime)
+    url = URL_FORECAST_TIDE.format("3", "01/01/2026", "03/01/2026")
+    items = [_item(datetime(2026, 1, day), "02") for day in (1, 2, 3)]
+    responses.get(url, body=_rss(items))
+    data = MeteoGalicia().get_forecast_tide("3")
+    assert data["todayDate"] == "2026-01-02"
+    assert data["date"] == "2026-01-02T00:00:00Z"
+
+
+@responses.activate
+def test_tide_day_falls_back_to_utc_timestamp(tide_url, tide_items):
+    """UTC midnight metadata can represent the previous UTC calendar day."""
+    import re
+    tide_items[1] = re.sub(
+        r"<Mareas:dataPredicion.*?</Mareas:dataPredicion>", "", tide_items[1]
+    ).replace("2026-01-01T00:00:00Z", "2025-12-31T23:00:00Z")
+    responses.get(tide_url, body=_rss(tide_items))
+    data = MeteoGalicia().get_forecast_tide("3")
+    assert data["todayDate"] == "2026-01-01"
+
+
+@responses.activate
+def test_single_tide_is_normalized_to_list(tide_url, tide_items):
+    """A singleton XML element must not become a mapping of tide fields."""
+    import re
+    tide_items[1] = re.sub(
+        r'<Mareas:mareas estado="Baixamar".*?/>', "", tide_items[1]
+    )
+    responses.get(tide_url, body=_rss(tide_items))
+    data = MeteoGalicia().get_forecast_tide("3")
+    assert len(data["todayTides"]) == 1
+    assert data["todayTides"][0]["@hora"] == "02:10"
+
+
+@responses.activate
+def test_invalid_prediction_date_returns_none(tide_url, tide_items):
+    tide_items[1] = tide_items[1].replace("01/01/2026", "invalid")
+    responses.get(tide_url, body=_rss(tide_items))
+    assert MeteoGalicia().get_forecast_tide("3") is None

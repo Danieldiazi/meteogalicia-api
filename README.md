@@ -28,6 +28,7 @@ meteogalicia.get_observation_data("15023")
 ```
 
 Custom session and timeout:
+
 ```python
 import requests
 from meteogalicia_api.interface import MeteoGalicia
@@ -36,6 +37,14 @@ session = requests.Session()
 meteogalicia = MeteoGalicia(session=session, timeout=10)
 meteogalicia.get_forecast_data("32054")
 ```
+
+Tide forecasts are dated in Europe/Madrid, including when the caller runs in
+another timezone. The date field describes today's RSS item; todayDate,
+tomorrowDate and yesterdayDate are local calendar dates in ISO format.
+The tomorrowTides field contains all tides for tomorrow, while
+tomorrowFirstTide remains available. RSS items are selected by forecast date
+rather than their order in the response.
+Timezone rules fall back to the packaged tzdata when the host has no IANA database.
 
 Town hall or city data methods:
 ```python

@@ -172,4 +172,33 @@ meteogalicia.get_forecast_tide("3")
 id availables at: https://www.meteogalicia.gal/datosred/infoweb/meteo/docs/rss/RSS_Mareas_gl.pdf
 
 Errors:
-- Methods return `None` when no data is available or the request fails.
+
+Methods return `None` by default when a request fails or no data is available.
+The `last_error` attribute describes the most recent failure and is cleared by
+the next successful request. Enable `raise_on_error=True` to handle typed errors:
+
+```python
+from meteogalicia_api.errors import MeteoGaliciaError
+from meteogalicia_api.interface import MeteoGalicia
+
+client = MeteoGalicia(timeout=10, raise_on_error=True)
+try:
+    forecast = client.get_forecast_data("15030")
+except MeteoGaliciaError as error:
+    print(error.kind, error.retryable, error.retry_after)
+```
+
+Error types distinguish connection failures, timeouts, HTTP status errors,
+invalid responses and missing data. HTTP errors expose `status_code`. A valid
+`Retry-After` header on HTTP 429 or 5xx responses is returned in seconds. The
+client does not retry automatically; callers can choose their own retry policy.
+
+Publishing
+----------
+
+After merging a version change, push a branch named `publish/v<VERSION>` at
+the merged commit. The publication workflow tests and validates distributions,
+checks the version, publishes to PyPI using Trusted Publishing, and creates the
+GitHub release only after PyPI succeeds. Publishing an existing release remains
+supported.
+
